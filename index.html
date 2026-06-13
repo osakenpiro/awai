@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>あわい / AWAI — nothing is on or off.</title>
+<meta name="description" content="ボタンのないゲーム。全部、スライダー。Boolean→Float を遊べる機構にした小さな一夜の物語。">
+<meta property="og:title" content="あわい / AWAI">
+<meta property="og:description" content="ボタンのないゲーム。全部、スライダー。0でも1でもない場所に、立っていられるか。">
+<meta name="theme-color" content="#0a0a0f">
+<style>
+  :root{
+    --void:#0a0a0f; --void-deep:#06060a; --surface:#15141a; --surface-hi:#1c1a23;
+    --gold:#d4a853; --gold-soft:rgba(212,168,83,.12); --gold-glow:rgba(212,168,83,.25); --gold-edge:rgba(212,168,83,.45);
+    --fg1:#e8e0d0; --fg2:#b8b0a0; --fg3:#807868; --dim:#5a5448;
+    --border:rgba(200,184,160,.07); --border-hi:rgba(212,168,83,.22);
+    --sans:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic Medium","Yu Gothic",system-ui,sans-serif;
+    --mono:"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
+    --tilt:.5; /* 0..1 current dial — subtly tints the stage */
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    background:radial-gradient(120% 90% at 50% 0%,#0c0b12 0%,var(--void) 45%,var(--void-deep) 100%);
+    color:var(--fg1); font-family:var(--sans); line-height:1.85;
+    -webkit-font-smoothing:antialiased; letter-spacing:.02em;
+    min-height:100%; overflow-x:hidden;
+  }
+  canvas#sky{position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none}
+  .wrap{position:relative; z-index:1; max-width:640px; margin:0 auto; padding:clamp(20px,5vw,56px) clamp(18px,5vw,28px) 96px}
+
+  /* ── ひとあかり：唯一の暖かい灯 ── */
+  .lamp{position:fixed; top:-90px; left:50%; transform:translateX(-50%); width:340px; height:340px; z-index:0; pointer-events:none;
+    background:radial-gradient(circle, var(--gold-glow) 0%, rgba(212,168,83,.06) 35%, transparent 70%);
+    filter:blur(6px); animation:breathe 7s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.55; transform:translateX(-50%) scale(1)} 50%{opacity:.9; transform:translateX(-50%) scale(1.06)}}
+
+  h1.title{font-size:clamp(40px,12vw,76px); font-weight:600; letter-spacing:.22em; margin:.2em 0 .05em; text-align:center;
+    color:var(--fg1); text-shadow:0 0 30px var(--gold-glow)}
+  .romaji{text-align:center; color:var(--gold); letter-spacing:.5em; font-size:13px; margin-bottom:.4em; padding-left:.5em}
+  .tag{text-align:center; color:var(--fg2); font-size:15px; margin:0 auto 2.2em; max-width:30em}
+  .tag em{color:var(--gold); font-style:normal}
+
+  .stage{background:linear-gradient(180deg,var(--surface) 0%,var(--surface-hi) 100%);
+    border:1px solid var(--border); border-radius:18px; padding:clamp(22px,5vw,40px);
+    box-shadow:0 24px 70px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.02);
+    position:relative; overflow:hidden}
+  .stage::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:.5;
+    background:linear-gradient(135deg, rgba(120,140,200,calc(.05*(1 - var(--tilt)))) 0%, transparent 40%, rgba(212,168,83,calc(.06*var(--tilt))) 100%)}
+  .scene-no{font-family:var(--mono); color:var(--gold); font-size:12px; letter-spacing:.3em; opacity:.8}
+  .scene-name{font-size:26px; font-weight:600; margin:.15em 0 .8em; letter-spacing:.08em}
+  .setup{color:var(--fg1); font-size:17px; min-height:5.2em; margin-bottom:1.3em}
+
+  /* ── スライダー本体（ボタンでなくダイヤル） ── */
+  .poles{display:flex; justify-content:space-between; font-size:15px; color:var(--fg2); margin-bottom:8px}
+  .poles .pa{color:#aeb6d6} .poles .pb{color:var(--gold)}
+  .dial{width:100%; -webkit-appearance:none; appearance:none; height:5px; border-radius:99px; outline:none;
+    background:linear-gradient(90deg, rgba(174,182,214,.5) 0%, rgba(120,120,140,.25) 50%, var(--gold-edge) 100%);
+    cursor:pointer; margin:6px 0 4px}
+  .dial::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:26px; height:26px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #f0d89a, var(--gold) 70%); border:2px solid #1a1812;
+    box-shadow:0 0 0 5px var(--gold-soft), 0 0 18px var(--gold-glow); cursor:grab; transition:box-shadow .2s}
+  .dial::-webkit-slider-thumb:active{cursor:grabbing; box-shadow:0 0 0 8px var(--gold-soft),0 0 26px var(--gold-glow)}
+  .dial::-moz-range-thumb{width:26px; height:26px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#f0d89a,var(--gold) 70%);
+    border:2px solid #1a1812; box-shadow:0 0 0 5px var(--gold-soft),0 0 18px var(--gold-glow); cursor:grab}
+  .scalerow{display:flex; justify-content:space-between; font-family:var(--mono); font-size:11px; color:var(--dim)}
+  .valbox{text-align:center; margin:14px 0 6px}
+  .val{font-family:var(--mono); font-size:34px; color:var(--gold); letter-spacing:.05em; text-shadow:0 0 18px var(--gold-glow)}
+  .dlabel{color:var(--fg2); font-size:14px; min-height:1.6em; letter-spacing:.06em}
+
+  .btn{display:inline-block; font-family:var(--sans); font-size:15px; letter-spacing:.12em; color:var(--gold);
+    background:transparent; border:1px solid var(--border-hi); border-radius:12px; padding:13px 26px; cursor:pointer;
+    transition:all .22s; margin-top:6px}
+  .btn:hover{background:var(--gold-soft); border-color:var(--gold-edge); box-shadow:0 0 24px var(--gold-soft)}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{color:var(--fg2); border-color:var(--border)}
+  .btn.ghost:hover{color:var(--gold)}
+  .center{text-align:center}
+  .row{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:10px}
+
+  /* ── 帰結（result） ── */
+  .result-frag{font-size:17.5px; color:var(--fg1); margin:.2em 0 1.1em; min-height:5em}
+  .echo{font-family:var(--mono); font-size:13px; color:var(--fg3); letter-spacing:.05em; line-height:2}
+  .echo b{color:var(--gold); font-weight:500}
+  .echo .up{color:#c9b27a} .echo .dn{color:#8a93b3}
+  .dialtag{display:inline-block; font-size:12.5px; color:var(--gold); border:1px solid var(--border-hi); border-radius:99px;
+    padding:3px 12px; margin-bottom:1.1em; font-family:var(--mono); letter-spacing:.08em}
+
+  /* ── プログレス ── */
+  .prog{display:flex; gap:7px; justify-content:center; margin:0 0 22px}
+  .pip{width:22px; height:3px; border-radius:99px; background:var(--border)}
+  .pip.on{background:var(--gold); box-shadow:0 0 8px var(--gold-glow)}
+  .pip.cur{background:var(--fg2)}
+
+  /* ── world meter（軸） ── */
+  .axes{display:grid; grid-template-columns:auto 1fr auto; gap:7px 12px; align-items:center; margin-top:18px; font-size:13px}
+  .axes .ax{color:var(--fg2); font-family:var(--mono); letter-spacing:.1em}
+  .axbar{height:4px; border-radius:99px; background:rgba(255,255,255,.05); overflow:hidden}
+  .axbar > i{display:block; height:100%; background:linear-gradient(90deg,var(--dim),var(--gold)); border-radius:99px; transition:width .6s ease}
+  .axval{font-family:var(--mono); font-size:11px; color:var(--fg3)}
+
+  /* ── ending ── */
+  .ending{font-size:17.5px; color:var(--fg1)}
+  .ending p{margin:0 0 1.15em}
+  .sig{margin:1.6em 0 1.2em; padding:16px 18px; border:1px solid var(--border-hi); border-radius:14px; background:var(--gold-soft)}
+  .sig .lab{font-family:var(--mono); font-size:12px; color:var(--gold); letter-spacing:.18em}
+  .sig .nums{font-family:var(--mono); font-size:22px; color:var(--fg1); margin:.25em 0}
+  .sig .interp{font-size:14px; color:var(--fg2)}
+  .techo{margin-top:18px; font-size:13.5px; color:var(--fg3); border-top:1px solid var(--border); padding-top:14px}
+  .techo b{color:var(--gold)}
+  .closing{text-align:center; color:var(--gold); font-size:18px; letter-spacing:.08em; margin:1.6em 0 .4em; text-shadow:0 0 20px var(--gold-glow)}
+
+  .fade{animation:fade .7s ease both}
+  @keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+  .foot{text-align:center; color:var(--dim); font-size:11.5px; letter-spacing:.12em; margin-top:30px; line-height:2}
+  .foot a{color:var(--fg3); text-decoration:none; border-bottom:1px solid var(--border)}
+  @media (prefers-reduced-motion: reduce){
+    .lamp{animation:none; opacity:.7} .fade{animation:none}
+    .axbar > i{transition:none}
+  }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="lamp" aria-hidden="true"></div>
+<div class="wrap">
+  <div id="app"></div>
+  <div class="foot">
+    あわい / AWAI &nbsp;·&nbsp; <span id="ftag">Boolean→Float を、遊ぶ</span><br>
+    #全人類UX改善計画 &nbsp;·&nbsp; <a href="#" id="reset-techo">あわい手帖を消す</a>
+  </div>
+</div>
+<script>
+"use strict";
+/* ========================================================================
+   あわい / AWAI  — Boolean→Float を“遊べる機構”にした小さな一夜の物語
+   全選択はボタン(0/1)でなくスライダー(0.0–1.0)。世界は連続応答し、
+   軌跡の“形”を覚え、エンディングを生成する。
+   ===================================================================== */
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const f2=v=>v.toFixed(2);
+const AX=["shin","kaze","onore","aida"];
+const AXJP={shin:"信",kaze:"風",onore:"己",aida:"間"};
+const AXDESC={shin:"近さ",kaze:"波風",onore:"自分",aida:"余白"};
+
+/* ── 7景 ───────────────────────────────────────────────── */
+const SCENES=[
+ {no:"一",name:"戸口",pa:"留まる",pb:"出る",
+  setup:"夜の部屋。明かりはひとつ。敷居のところで、あなたは靴の片方に足を入れたまま、止まっている。",
+  frags:[
+   "ドアの内側で、あなたは靴を脱いだ。畳んだ上着の重みが、肩から下りていく。今夜はここにいる、と部屋が静かに受け取った。",
+   "片足は内、片足は外。風が踝をなでる。出るとも留まるとも決めないまま、あなたはしばらく、敷居の温度を確かめている。",
+   "戸を引く。夜気がひといきに入ってくる。背中で部屋の灯が小さくなって、あなたはもう、外の人になっていた。"],
+  fxA:{shin:+.10,kaze:-.12,onore:-.05,aida:+.10}, fxB:{shin:-.10,kaze:+.15,onore:+.12,aida:-.10}},
+
+ {no:"二",name:"手紙",pa:"隠す",pb:"打ち明ける",
+  setup:"書きかけの一通。ほんとうのことが、二行だけ、まだ書かれずに残っている。",
+  frags:[
+   "あなたはその二行を、書かないことにした。便箋はきれいなまま折りたためる。誰も傷つかない。あなたのなかにだけ、小さなおもりが残る。",
+   "二行を、別の言葉に置きかえる。ほんとうでも嘘でもない、淡い言い方。読む人はたぶん、行間で気づく。気づかないかもしれない。",
+   "あなたは書いた。手が少し震える。封をするとき、もう取り消せないことが、かえって、楽だった。"],
+  fxA:{shin:-.06,kaze:-.10,onore:-.08,aida:+.06}, fxB:{shin:+.16,kaze:+.12,onore:+.10,aida:-.08}},
+
+ {no:"三",name:"灯",pa:"消す",pb:"点す",
+  setup:"もう寝る。けれど玄関の灯を、消すか、点けたままにするか。まだ帰らない誰かが、いる。",
+  frags:[
+   "あなたは灯を消した。闇が部屋の隅々まで平らになる。帰る人は、自分の鍵で、自分の暗さに入ってくるだろう。",
+   "いちばん小さい灯だけ残す。豆球のような、ためらいのような明かり。点いているとも消えているとも言いにくい光が、廊下に細く伸びる。",
+   "あなたは灯を点けたままにした。電気代のことが少し過る。でも——帰ってきたとき、ここが明るいといい。"],
+  fxA:{shin:-.08,kaze:-.05,onore:+.04,aida:+.04}, fxB:{shin:+.14,kaze:+.02,onore:-.04,aida:-.06}},
+
+ {no:"四",name:"声",pa:"黙る",pb:"呼ぶ",
+  setup:"廊下の先に、その人の背中。名前を呼べば、届く。呼ばなければ、何も起きない。",
+  frags:[
+   "あなたは名前を飲みこんだ。背中は遠ざかる。呼ばなかったことは、誰の記憶にも残らない。あなたのほかには。",
+   "口が半分ひらいて、息だけが出た。声にならない声。その人は足を止めない。でも、ほんの一瞬、肩が動いた気もする。",
+   "あなたは名を呼んだ。声は思ったより大きく廊下に響いて——その人が、振り返る。"],
+  fxA:{shin:-.10,kaze:-.10,onore:-.06,aida:+.08}, fxB:{shin:+.18,kaze:+.14,onore:+.08,aida:-.10}},
+
+ {no:"五",name:"手",pa:"放す",pb:"握る",
+  setup:"階段の手すり。冷たい。あるいは、差し出された、もう一つの手。握るか、放すか。",
+  frags:[
+   "あなたは手すりから手を放した。支えのない一段。落ちはしない。ただ、自分の重さを、はじめて自分で持った。",
+   "指先だけ、触れている。握るほどでも、放すほどでもなく。あいだの体重で、あなたは一段、降りる。",
+   "あなたはしっかり握った。冷たさが手のひらに移って、やがて、手のひらの温度に変わる。ひとりではない、降り方。"],
+  fxA:{shin:-.06,kaze:+.10,onore:+.16,aida:-.04}, fxB:{shin:+.16,kaze:-.06,onore:-.06,aida:+.06}},
+
+ {no:"六",name:"窓",pa:"閉じる",pb:"開ける",
+  setup:"夜明け前の窓。外は寒い。けれど、いちばん新しい空気が、そこにある。",
+  frags:[
+   "あなたは窓を閉じた。部屋の暖かさが守られる。ガラスの内側に、あなたの息が、薄く曇りを残した。",
+   "指の幅ほど、開けておく。冷気が細く忍びこみ、暖かさと混ざる。どちらでもない温度の部屋で、あなたは夜明けを待つ。",
+   "あなたは窓を開け放った。寒さが肩を抱く。けれど、夜のいちばん端の匂いが、まっすぐ胸に入ってきた。"],
+  fxA:{shin:+.04,kaze:-.14,onore:-.06,aida:+.10}, fxB:{shin:+.02,kaze:+.16,onore:+.12,aida:-.06}},
+
+ {no:"七",name:"朝",pa:"まだ",pb:"もう",
+  setup:"空の色が変わりはじめる。あなたにとって、朝はもう来たのか。それとも、まだ夜の続きか。",
+  frags:[
+   "「まだ」と、あなたは思う。夜はもう少し、あなたのものだ。朝はあとから来ればいい。急がなくて、いい。",
+   "まだ、と、もう、のあいだ。空はもう白いのに、あなたの内側はまだ少し暗い。その二つを、両方ほんとうのまま、あなたは抱えている。",
+   "「もう」と、あなたは思う。朝だ。昨夜のあなたとは、もう少しだけ違う人として、あなたは立ち上がる。"]
+  ,fxA:{shin:-.02,kaze:-.12,onore:+.04,aida:+.14}, fxB:{shin:+.06,kaze:+.10,onore:+.14,aida:-.12}}
+];
+
+/* ── 連続ラベル（あわい感を出す肝） ── */
+function dialLabel(p,pa,pb){
+  if(p<.10) return "ほとんど〈"+pa+"〉へ";
+  if(p<.34) return "〈"+pa+"〉寄り";
+  if(p<.44) return "すこし〈"+pa+"〉、けれど";
+  if(p<=.56) return "まんなか。あわい。";
+  if(p<.66) return "すこし〈"+pb+"〉、けれど";
+  if(p<.90) return "〈"+pb+"〉寄り";
+  return "ほとんど〈"+pb+"〉へ";
+}
+
+/* ── 状態 ── */
+let idx=0;
+let world={shin:.5,kaze:.5,onore:.5,aida:.5};
+let positions=[];          // 各情景の p
+let app=document.getElementById("app");
+
+/* ── 画面：タイトル ── */
+function viewTitle(){
+  setTilt(.5);
+  app.className="fade";
+  app.innerHTML=`
+   <p class="romaji">A &nbsp; W &nbsp; A &nbsp; I</p>
+   <h1 class="title">あわい</h1>
+   <p class="tag"><em>ボタンのない</em>ゲーム。全部、スライダー。<br>0でも1でもない場所に、あなたは立っていられるか。</p>
+   <div class="stage">
+     <p class="setup" style="min-height:auto">ここでは、すべての選択が <b style="color:var(--gold)">0.00 〜 1.00</b> のダイヤルです。
+     「はい／いいえ」ではなく、<b style="color:var(--gold)">どのくらい</b>を、指で決める。
+     世界はその分だけ、連続して応えます。<br><br>
+     七つの情景。短い、ある一夜。あなたの手つきの“形”を、最後に読みます。</p>
+     <div class="center"><button class="btn" id="start">はじめる</button></div>
+   </div>
+   ${techoSummary()}`;
+  document.getElementById("start").onclick=()=>{idx=0;world={shin:.5,kaze:.5,onore:.5,aida:.5};positions=[];viewScene();};
+  bindResetTecho();
+}
+
+/* ── 画面：情景（ダイヤル） ── */
+function viewScene(){
+  const s=SCENES[idx];
+  setTilt(.5);
+  app.className="fade";
+  app.innerHTML=`
+   ${progress(idx,false)}
+   <div class="stage">
+     <div class="scene-no">情景 ${s.no}</div>
+     <div class="scene-name">${s.name}</div>
+     <div class="setup">${s.setup}</div>
+     <div class="poles"><span class="pa">${s.pa}</span><span class="pb">${s.pb}</span></div>
+     <input class="dial" id="dial" type="range" min="0" max="1" step="0.01" value="0.5"
+        aria-label="${s.pa} から ${s.pb} までのダイヤル">
+     <div class="scalerow"><span>0.00</span><span>0.50</span><span>1.00</span></div>
+     <div class="valbox"><div class="val" id="val">0.50</div><div class="dlabel" id="dl">${dialLabel(.5,s.pa,s.pb)}</div></div>
+     <div class="center"><button class="btn" id="confirm">この手つきで、決める</button></div>
+   </div>`;
+  const dial=document.getElementById("dial"), val=document.getElementById("val"), dl=document.getElementById("dl");
+  const upd=()=>{const p=parseFloat(dial.value); val.textContent=f2(p); dl.textContent=dialLabel(p,s.pa,s.pb); setTilt(p);};
+  dial.addEventListener("input",upd);
+  document.getElementById("confirm").onclick=()=>{const p=parseFloat(dial.value); applyScene(s,p); viewResult(s,p);};
+}
+
+/* ── 帰結を世界へ適用（連続ブレンド） ── */
+let lastDelta={};
+function applyScene(s,p){
+  lastDelta={};
+  AX.forEach(k=>{const d=lerp(s.fxA[k],s.fxB[k],p); lastDelta[k]=d; world[k]=clamp(world[k]+d);});
+  positions.push(p);
+}
+
+/* ── 画面：帰結（ナレ＋こだま） ── */
+function viewResult(s,p){
+  const frag = p<.34? s.frags[0] : (p>.66? s.frags[2] : s.frags[1]);
+  app.className="fade";
+  app.innerHTML=`
+   ${progress(idx,true)}
+   <div class="stage">
+     <div class="scene-no">情景 ${s.no} ・ ${s.name}</div>
+     <div style="height:10px"></div>
+     <span class="dialtag">${f2(p)} ／ ${dialLabel(p,s.pa,s.pb)}</span>
+     <div class="result-frag">${frag}</div>
+     <div class="echo">${echoLine(lastDelta)}</div>
+     ${axesView()}
+     <div class="center" style="margin-top:22px">
+       <button class="btn" id="next">${idx<SCENES.length-1?"次の情景へ":"朝を、読む"}</button>
+     </div>
+   </div>`;
+  document.getElementById("next").onclick=()=>{
+    idx++;
+    if(idx<SCENES.length) viewScene(); else viewEnding();
+  };
+}
+
+function echoLine(delta){
+  // 動いた軸を大きい順に。連続値なので 0.5 でも必ず何かが動く。
+  const parts=AX.map(k=>({k,d:delta[k]})).filter(o=>Math.abs(o.d)>=.015)
+     .sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
+  if(!parts.length) return "<span style='color:var(--dim)'>世界は、ほとんど動かなかった。</span>";
+  return parts.map(o=>{
+    const sign=o.d>=0?"＋":"−", cls=o.d>=0?"up":"dn", arrow=o.d>=0?"↗":"↘";
+    return `<b>${AXJP[o.k]}</b><span style="color:var(--dim)">(${AXDESC[o.k]})</span> <span class="${cls}">${arrow} ${sign}${f2(Math.abs(o.d))}</span>`;
+  }).join("　");
+}
+
+function axesView(){
+  return `<div class="axes">`+AX.map(k=>
+    `<span class="ax">${AXJP[k]}</span>
+     <span class="axbar"><i style="width:${(world[k]*100).toFixed(0)}%"></i></span>
+     <span class="axval">${f2(world[k])}</span>`).join("")+`</div>`;
+}
+
+/* ── エンディング生成 ── */
+const BANDS={
+ shin:["あなたは、すこし遠くにいる。近づきすぎないことで、守ったものがある。",
+       "近さは、ちょうど手の届くあたりに、ある。",
+       "あなたは、だれかのそばにいることを選んだ、夜だった。"],
+ kaze:["波は、立たなかった。静けさが、そのまま朝までつづいた。",
+       "小さな波が、いくつか。けれど舟は、沈まなかった。",
+       "夜のあいだに、いくつものことが動いた。あなたはその風の、まんなかにいた。"],
+ onore:["あなたは、自分を少し脇に置いた。それも、ひとつのやさしさだ。",
+        "あなたは、あなたのままで、いられた。",
+        "あなたは、はっきりと、自分の重さを持った。"],
+ aida:["余白は、ほとんど使いきった。差し出した分だけ、あなたは軽くなった。",
+       "余白は、まだ少し残っている。明日のための、のりしろのように。",
+       "あなたは、たくさんの余白を残した。決めないことも、ひとつの決め方だった。"]
+};
+const band=v=> v<.42?0 : (v>.58?2:1);
+
+function endingParas(){
+  const out=[];
+  out.push(BANDS.aida[band(world.aida)]+BANDS.shin[band(world.shin)]);
+  out.push(BANDS.onore[band(world.onore)]+BANDS.kaze[band(world.kaze)]);
+  return out;
+}
+
+function meta(){
+  const n=positions.length||1;
+  const pol = positions.reduce((a,p)=>a+Math.abs(p-.5),0)/n*2;          // 0..1
+  const mean= positions.reduce((a,p)=>a+p,0)/n;
+  const vr  = Math.sqrt(positions.reduce((a,p)=>a+(p-mean)*(p-mean),0)/n)*2; // 0..~1
+  return {pol:clamp(pol), vr:clamp(vr)};
+}
+function polarityPara(pol){
+  if(pol<.25) return "ひと晩、あなたはほとんど端を選ばなかった。0でも1でもない場所に、ちゃんと立っていられた。これは、見た目より、ずっと難しいことだ。";
+  if(pol<.55) return "端に寄せた手も、あわいに置いた手もあった。あなたは、決めることと、決めきらないことを、使いわけていた。";
+  return "あなたは何度も、振り切った。0か、1か——強い手つきだった。あわいは、あなたには少し、狭かったのかもしれない。";
+}
+function variancePara(vr){
+  if(vr<.25) return "どの情景でも、あなたの手つきはよく似ていた。ひとつの流儀を、夜どおし貫いた。";
+  if(vr<.5) return "場面ごとに、手つきは変わった。あなたは、その都度、その場の温度で決めていた。";
+  return "あなたの立ち位置は、大きく揺れた。ためらい、行きつ戻りつ。その揺れこそ、あなたが本気だった証かもしれない。";
+}
+function closingLine(pol){
+  return pol<.4 ? "おやすみ。あるいは、おはよう。——あなたは今、その、あわいにいる。"
+                : "夜が明ける。選んだものも、選ばなかったものも、連れて。";
+}
+function interp(pol){
+  if(pol<.25) return "0に近いほど、あなたはあわいの住人。";
+  if(pol<.55) return "ちょうど半ば。あなたは行き来する人。";
+  return "1に近いほど、あなたは強く決める人。";
+}
+
+function viewEnding(){
+  setTilt(.5);
+  const m=meta();
+  const paras=endingParas();
+  const rec=saveTecho(m);
+  app.className="fade";
+  app.innerHTML=`
+   ${progress(SCENES.length,true)}
+   <div class="stage">
+     <div class="scene-no">あけがた</div>
+     <div class="scene-name">あなたのあわい</div>
+     <div class="ending">
+       <p>${paras[0]}</p>
+       <p>${paras[1]}</p>
+       <p>${polarityPara(m.pol)}</p>
+       <p>${variancePara(m.vr)}</p>
+     </div>
+     <div class="sig">
+       <div class="lab">あなたのあわい・署名</div>
+       <div class="nums">極性 ${f2(m.pol)} ／ 揺らぎ ${f2(m.vr)}</div>
+       <div class="interp">${interp(m.pol)}</div>
+     </div>
+     ${axesView()}
+     <div class="closing">${closingLine(m.pol)}</div>
+     ${rec.html}
+     <div class="row">
+       <button class="btn" id="again">もう一度、ちがう手つきで</button>
+     </div>
+   </div>`;
+  document.getElementById("again").onclick=viewTitle;
+}
+
+/* ── progress pips ── */
+function progress(done,inResult){
+  let p="";
+  for(let i=0;i<SCENES.length;i++){
+    const cls = i<done? "pip on" : (i===done && !inResult ? "pip cur":"pip");
+    p+=`<span class="${cls}"></span>`;
+  }
+  return `<div class="prog" aria-hidden="true">${p}</div>`;
+}
+
+/* ── あわい手帖（localStorage 永続化） ── */
+const TECHO_KEY="awai-techo-v1";
+function loadTecho(){ try{return JSON.parse(localStorage.getItem(TECHO_KEY))||[];}catch(e){return [];} }
+function saveTecho(m){
+  let log=loadTecho();
+  const prev=log.length?log[log.length-1]:null;
+  const rec={d:new Date().toISOString().slice(0,10),pol:+f2(m.pol),vr:+f2(m.vr),
+             shin:+f2(world.shin),kaze:+f2(world.kaze),onore:+f2(world.onore),aida:+f2(world.aida)};
+  log.push(rec); if(log.length>50) log=log.slice(-50);
+  try{localStorage.setItem(TECHO_KEY,JSON.stringify(log));}catch(e){}
+  let html=`<div class="techo">あわい手帖 ・ <b>${log.length}</b> 度目の夜`;
+  if(prev){
+    const dp=(m.pol-prev.pol), dv=(m.vr-prev.vr);
+    const w=v=> v>0?`＋${f2(v)}`:`−${f2(Math.abs(v))}`;
+    html+=`<br>前回より 極性 <b>${w(dp)}</b> ／ 揺らぎ <b>${w(dv)}</b>。`;
+    html+= Math.abs(dp)<.06 ? " 似た夜を、もう一度。" : (dp<0? " 今夜は、よりあわいへ寄った。":" 今夜は、より端へ寄った。");
+  }else{
+    html+=`<br>はじめての夜が、手帖に記された。`;
+  }
+  html+=`</div>`;
+  return {html,rec};
+}
+function techoSummary(){
+  const log=loadTecho();
+  if(!log.length) return "";
+  const last=log[log.length-1];
+  const avg=log.reduce((a,r)=>a+r.pol,0)/log.length;
+  return `<div class="techo" style="text-align:center;border-top:none;margin-top:18px">
+    あわい手帖：<b>${log.length}</b> 夜 ・ 平均極性 <b>${f2(avg)}</b> ・ 前回 極性 ${f2(last.pol)}／揺らぎ ${f2(last.vr)}</div>`;
+}
+function bindResetTecho(){
+  const a=document.getElementById("reset-techo");
+  if(a) a.onclick=(e)=>{e.preventDefault(); try{localStorage.removeItem(TECHO_KEY);}catch(_){}
+     const f=document.getElementById("ftag"); if(f) f.textContent="手帖を、まっさらに"; viewTitle();};
+}
+
+/* ── tilt（情景のわずかな色み） ── */
+function setTilt(p){ document.documentElement.style.setProperty("--tilt", p); }
+
+/* ── 星空 canvas（控えめ＋ひとつだけ金の星） ── */
+(function sky(){
+  const c=document.getElementById("sky"), x=c.getContext("2d");
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W,H,stars;
+  function resize(){ W=c.width=innerWidth; H=c.height=innerHeight;
+    const n=Math.min(90,Math.floor(W*H/16000));
+    stars=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,
+      r:Math.random()*1.1+.2, a:Math.random(), s:Math.random()*.018+.004,
+      gold:Math.random()<.06}));
+  }
+  function draw(){
+    x.clearRect(0,0,W,H);
+    for(const st of stars){
+      if(!reduce){ st.a+=st.s; if(st.a>1||st.a<.1) st.s*=-1; }
+      x.globalAlpha=.15+st.a*.6;
+      x.fillStyle= st.gold ? "#d4a853" : "#cfd6e6";
+      x.beginPath(); x.arc(st.x,st.y,st.r,0,7); x.fill();
+    }
+    x.globalAlpha=1;
+    if(!reduce) requestAnimationFrame(draw);
+  }
+  addEventListener("resize",resize); resize(); draw();
+})();
+
+viewTitle();
+</script>
+</body>
+</html>
