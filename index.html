@@ -7,7 +7,10 @@
 <meta name="description" content="ボタンのないゲーム。全部、スライダー。Boolean→Float を遊べる機構にした小さな一夜の物語。">
 <meta property="og:title" content="あわい / AWAI">
 <meta property="og:description" content="ボタンのないゲーム。全部、スライダー。0でも1でもない場所に、立っていられるか。">
+<meta property="og:url" content="https://osakenpiro.github.io/awai/">
+<meta name="twitter:card" content="summary">
 <meta name="theme-color" content="#0a0a0f">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0f'/%3E%3Cline x1='6' y1='16' x2='26' y2='16' stroke='%23807868' stroke-width='2'/%3E%3Ccircle cx='19' cy='16' r='5' fill='%23d4a853'/%3E%3C/svg%3E">
 <style>
   :root{
     --void:#0a0a0f; --void-deep:#06060a; --surface:#15141a; --surface-hi:#1c1a23;
@@ -16,7 +19,7 @@
     --border:rgba(200,184,160,.07); --border-hi:rgba(212,168,83,.22);
     --sans:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic Medium","Yu Gothic",system-ui,sans-serif;
     --mono:"SFMono-Regular",Menlo,Consolas,"Courier New",monospace;
-    --tilt:.5; /* 0..1 current dial — subtly tints the stage */
+    --tilt:.5;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;height:100%}
@@ -28,19 +31,15 @@
   }
   canvas#sky{position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none}
   .wrap{position:relative; z-index:1; max-width:640px; margin:0 auto; padding:clamp(20px,5vw,56px) clamp(18px,5vw,28px) 96px}
-
-  /* ── ひとあかり：唯一の暖かい灯 ── */
   .lamp{position:fixed; top:-90px; left:50%; transform:translateX(-50%); width:340px; height:340px; z-index:0; pointer-events:none;
     background:radial-gradient(circle, var(--gold-glow) 0%, rgba(212,168,83,.06) 35%, transparent 70%);
     filter:blur(6px); animation:breathe 7s ease-in-out infinite}
   @keyframes breathe{0%,100%{opacity:.55; transform:translateX(-50%) scale(1)} 50%{opacity:.9; transform:translateX(-50%) scale(1.06)}}
-
   h1.title{font-size:clamp(40px,12vw,76px); font-weight:600; letter-spacing:.22em; margin:.2em 0 .05em; text-align:center;
     color:var(--fg1); text-shadow:0 0 30px var(--gold-glow)}
   .romaji{text-align:center; color:var(--gold); letter-spacing:.5em; font-size:13px; margin-bottom:.4em; padding-left:.5em}
   .tag{text-align:center; color:var(--fg2); font-size:15px; margin:0 auto 2.2em; max-width:30em}
   .tag em{color:var(--gold); font-style:normal}
-
   .stage{background:linear-gradient(180deg,var(--surface) 0%,var(--surface-hi) 100%);
     border:1px solid var(--border); border-radius:18px; padding:clamp(22px,5vw,40px);
     box-shadow:0 24px 70px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.02);
@@ -50,8 +49,6 @@
   .scene-no{font-family:var(--mono); color:var(--gold); font-size:12px; letter-spacing:.3em; opacity:.8}
   .scene-name{font-size:26px; font-weight:600; margin:.15em 0 .8em; letter-spacing:.08em}
   .setup{color:var(--fg1); font-size:17px; min-height:5.2em; margin-bottom:1.3em}
-
-  /* ── スライダー本体（ボタンでなくダイヤル） ── */
   .poles{display:flex; justify-content:space-between; font-size:15px; color:var(--fg2); margin-bottom:8px}
   .poles .pa{color:#aeb6d6} .poles .pb{color:var(--gold)}
   .dial{width:100%; -webkit-appearance:none; appearance:none; height:5px; border-radius:99px; outline:none;
@@ -67,39 +64,30 @@
   .valbox{text-align:center; margin:14px 0 6px}
   .val{font-family:var(--mono); font-size:34px; color:var(--gold); letter-spacing:.05em; text-shadow:0 0 18px var(--gold-glow)}
   .dlabel{color:var(--fg2); font-size:14px; min-height:1.6em; letter-spacing:.06em}
-
   .btn{display:inline-block; font-family:var(--sans); font-size:15px; letter-spacing:.12em; color:var(--gold);
     background:transparent; border:1px solid var(--border-hi); border-radius:12px; padding:13px 26px; cursor:pointer;
     transition:all .22s; margin-top:6px}
   .btn:hover{background:var(--gold-soft); border-color:var(--gold-edge); box-shadow:0 0 24px var(--gold-soft)}
   .btn:active{transform:translateY(1px)}
-  .btn.ghost{color:var(--fg2); border-color:var(--border)}
+  .btn.ghost{color:var(--fg2); border-color:var(--border); font-size:14px; padding:11px 20px}
   .btn.ghost:hover{color:var(--gold)}
   .center{text-align:center}
   .row{display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:10px}
-
-  /* ── 帰結（result） ── */
   .result-frag{font-size:17.5px; color:var(--fg1); margin:.2em 0 1.1em; min-height:5em}
   .echo{font-family:var(--mono); font-size:13px; color:var(--fg3); letter-spacing:.05em; line-height:2}
   .echo b{color:var(--gold); font-weight:500}
   .echo .up{color:#c9b27a} .echo .dn{color:#8a93b3}
   .dialtag{display:inline-block; font-size:12.5px; color:var(--gold); border:1px solid var(--border-hi); border-radius:99px;
     padding:3px 12px; margin-bottom:1.1em; font-family:var(--mono); letter-spacing:.08em}
-
-  /* ── プログレス ── */
-  .prog{display:flex; gap:7px; justify-content:center; margin:0 0 22px}
-  .pip{width:22px; height:3px; border-radius:99px; background:var(--border)}
+  .prog{display:flex; gap:6px; justify-content:center; margin:0 0 22px; flex-wrap:wrap}
+  .pip{width:20px; height:3px; border-radius:99px; background:var(--border)}
   .pip.on{background:var(--gold); box-shadow:0 0 8px var(--gold-glow)}
   .pip.cur{background:var(--fg2)}
-
-  /* ── world meter（軸） ── */
   .axes{display:grid; grid-template-columns:auto 1fr auto; gap:7px 12px; align-items:center; margin-top:18px; font-size:13px}
   .axes .ax{color:var(--fg2); font-family:var(--mono); letter-spacing:.1em}
   .axbar{height:4px; border-radius:99px; background:rgba(255,255,255,.05); overflow:hidden}
   .axbar > i{display:block; height:100%; background:linear-gradient(90deg,var(--dim),var(--gold)); border-radius:99px; transition:width .6s ease}
   .axval{font-family:var(--mono); font-size:11px; color:var(--fg3)}
-
-  /* ── ending ── */
   .ending{font-size:17.5px; color:var(--fg1)}
   .ending p{margin:0 0 1.15em}
   .sig{margin:1.6em 0 1.2em; padding:16px 18px; border:1px solid var(--border-hi); border-radius:14px; background:var(--gold-soft)}
@@ -109,15 +97,11 @@
   .techo{margin-top:18px; font-size:13.5px; color:var(--fg3); border-top:1px solid var(--border); padding-top:14px}
   .techo b{color:var(--gold)}
   .closing{text-align:center; color:var(--gold); font-size:18px; letter-spacing:.08em; margin:1.6em 0 .4em; text-shadow:0 0 20px var(--gold-glow)}
-
   .fade{animation:fade .7s ease both}
   @keyframes fade{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
   .foot{text-align:center; color:var(--dim); font-size:11.5px; letter-spacing:.12em; margin-top:30px; line-height:2}
   .foot a{color:var(--fg3); text-decoration:none; border-bottom:1px solid var(--border)}
-  @media (prefers-reduced-motion: reduce){
-    .lamp{animation:none; opacity:.7} .fade{animation:none}
-    .axbar > i{transition:none}
-  }
+  @media (prefers-reduced-motion: reduce){ .lamp{animation:none; opacity:.7} .fade{animation:none} .axbar > i{transition:none} }
 </style>
 </head>
 <body>
@@ -133,9 +117,10 @@
 <script>
 "use strict";
 /* ========================================================================
-   あわい / AWAI  — Boolean→Float を“遊べる機構”にした小さな一夜の物語
+   あわい / AWAI  v2 — Boolean→Float を“遊べる機構”にした小さな一夜の物語
    全選択はボタン(0/1)でなくスライダー(0.0–1.0)。世界は連続応答し、
    軌跡の“形”を覚え、エンディングを生成する。
+   v2追加: 深い夜(10景) / 結果シェアカード(canvas DL) / favicon
    ===================================================================== */
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
@@ -144,7 +129,6 @@ const AX=["shin","kaze","onore","aida"];
 const AXJP={shin:"信",kaze:"風",onore:"己",aida:"間"};
 const AXDESC={shin:"近さ",kaze:"波風",onore:"自分",aida:"余白"};
 
-/* ── 7景 ───────────────────────────────────────────────── */
 const SCENES=[
  {no:"一",name:"戸口",pa:"留まる",pb:"出る",
   setup:"夜の部屋。明かりはひとつ。敷居のところで、あなたは靴の片方に足を入れたまま、止まっている。",
@@ -153,7 +137,6 @@ const SCENES=[
    "片足は内、片足は外。風が踝をなでる。出るとも留まるとも決めないまま、あなたはしばらく、敷居の温度を確かめている。",
    "戸を引く。夜気がひといきに入ってくる。背中で部屋の灯が小さくなって、あなたはもう、外の人になっていた。"],
   fxA:{shin:+.10,kaze:-.12,onore:-.05,aida:+.10}, fxB:{shin:-.10,kaze:+.15,onore:+.12,aida:-.10}},
-
  {no:"二",name:"手紙",pa:"隠す",pb:"打ち明ける",
   setup:"書きかけの一通。ほんとうのことが、二行だけ、まだ書かれずに残っている。",
   frags:[
@@ -161,7 +144,6 @@ const SCENES=[
    "二行を、別の言葉に置きかえる。ほんとうでも嘘でもない、淡い言い方。読む人はたぶん、行間で気づく。気づかないかもしれない。",
    "あなたは書いた。手が少し震える。封をするとき、もう取り消せないことが、かえって、楽だった。"],
   fxA:{shin:-.06,kaze:-.10,onore:-.08,aida:+.06}, fxB:{shin:+.16,kaze:+.12,onore:+.10,aida:-.08}},
-
  {no:"三",name:"灯",pa:"消す",pb:"点す",
   setup:"もう寝る。けれど玄関の灯を、消すか、点けたままにするか。まだ帰らない誰かが、いる。",
   frags:[
@@ -169,7 +151,6 @@ const SCENES=[
    "いちばん小さい灯だけ残す。豆球のような、ためらいのような明かり。点いているとも消えているとも言いにくい光が、廊下に細く伸びる。",
    "あなたは灯を点けたままにした。電気代のことが少し過る。でも——帰ってきたとき、ここが明るいといい。"],
   fxA:{shin:-.08,kaze:-.05,onore:+.04,aida:+.04}, fxB:{shin:+.14,kaze:+.02,onore:-.04,aida:-.06}},
-
  {no:"四",name:"声",pa:"黙る",pb:"呼ぶ",
   setup:"廊下の先に、その人の背中。名前を呼べば、届く。呼ばなければ、何も起きない。",
   frags:[
@@ -177,7 +158,6 @@ const SCENES=[
    "口が半分ひらいて、息だけが出た。声にならない声。その人は足を止めない。でも、ほんの一瞬、肩が動いた気もする。",
    "あなたは名を呼んだ。声は思ったより大きく廊下に響いて——その人が、振り返る。"],
   fxA:{shin:-.10,kaze:-.10,onore:-.06,aida:+.08}, fxB:{shin:+.18,kaze:+.14,onore:+.08,aida:-.10}},
-
  {no:"五",name:"手",pa:"放す",pb:"握る",
   setup:"階段の手すり。冷たい。あるいは、差し出された、もう一つの手。握るか、放すか。",
   frags:[
@@ -185,7 +165,6 @@ const SCENES=[
    "指先だけ、触れている。握るほどでも、放すほどでもなく。あいだの体重で、あなたは一段、降りる。",
    "あなたはしっかり握った。冷たさが手のひらに移って、やがて、手のひらの温度に変わる。ひとりではない、降り方。"],
   fxA:{shin:-.06,kaze:+.10,onore:+.16,aida:-.04}, fxB:{shin:+.16,kaze:-.06,onore:-.06,aida:+.06}},
-
  {no:"六",name:"窓",pa:"閉じる",pb:"開ける",
   setup:"夜明け前の窓。外は寒い。けれど、いちばん新しい空気が、そこにある。",
   frags:[
@@ -193,17 +172,40 @@ const SCENES=[
    "指の幅ほど、開けておく。冷気が細く忍びこみ、暖かさと混ざる。どちらでもない温度の部屋で、あなたは夜明けを待つ。",
    "あなたは窓を開け放った。寒さが肩を抱く。けれど、夜のいちばん端の匂いが、まっすぐ胸に入ってきた。"],
   fxA:{shin:+.04,kaze:-.14,onore:-.06,aida:+.10}, fxB:{shin:+.02,kaze:+.16,onore:+.12,aida:-.06}},
-
  {no:"七",name:"朝",pa:"まだ",pb:"もう",
   setup:"空の色が変わりはじめる。あなたにとって、朝はもう来たのか。それとも、まだ夜の続きか。",
   frags:[
    "「まだ」と、あなたは思う。夜はもう少し、あなたのものだ。朝はあとから来ればいい。急がなくて、いい。",
    "まだ、と、もう、のあいだ。空はもう白いのに、あなたの内側はまだ少し暗い。その二つを、両方ほんとうのまま、あなたは抱えている。",
-   "「もう」と、あなたは思う。朝だ。昨夜のあなたとは、もう少しだけ違う人として、あなたは立ち上がる。"]
-  ,fxA:{shin:-.02,kaze:-.12,onore:+.04,aida:+.14}, fxB:{shin:+.06,kaze:+.10,onore:+.14,aida:-.12}}
+   "「もう」と、あなたは思う。朝だ。昨夜のあなたとは、もう少しだけ違う人として、あなたは立ち上がる。"],
+  fxA:{shin:-.02,kaze:-.12,onore:+.04,aida:+.14}, fxB:{shin:+.06,kaze:+.10,onore:+.14,aida:-.12}}
 ];
 
-/* ── 連続ラベル（あわい感を出す肝） ── */
+/* 深い夜（+3景）— より深い張力。最後は Boolean→Float そのものを問う */
+const SCENES2=[
+ {no:"八",name:"鏡",pa:"そらす",pb:"見る",
+  setup:"洗面所の鏡。暗がりのなかに、あなた自身の輪郭。目をそらすか、まっすぐ見るか。",
+  frags:[
+   "あなたは目をそらした。鏡のなかの輪郭は、見ないことにすれば、ないのと同じだ。たぶん。",
+   "まっすぐは、見ない。視界のはしに、自分の気配だけを置いておく。見たような、見ていないような夜。",
+   "あなたは自分を、まっすぐ見た。思っていたより疲れた顔。思っていたより、ただの、ひとりの人間の顔。"],
+  fxA:{shin:-.04,kaze:-.08,onore:-.12,aida:+.08}, fxB:{shin:+.06,kaze:+.10,onore:+.18,aida:-.08}},
+ {no:"九",name:"名",pa:"まもる",pb:"あげる",
+  setup:"手のなかに、ひとつの名前。たいせつなもの。誰にも渡さず守るか、いちばん必要な人に、あげてしまうか。",
+  frags:[
+   "あなたは、それを手のなかに握ったままにした。誰のものにもしない。失わないかわりに、ふえることもない。",
+   "名前の半分だけ、そっと差し出す。受け取るかどうかは、相手にゆだねる。渡したとも、守ったとも言える夜。",
+   "あなたは、それをあげた。手のひらが空になって、軽くて、少し心もとない。でも、空いた手は、次のものを持てる。"],
+  fxA:{shin:-.08,kaze:-.10,onore:+.06,aida:+.10}, fxB:{shin:+.16,kaze:+.12,onore:-.02,aida:-.12}},
+ {no:"十",name:"あいだ",pa:"ひとつにする",pb:"ふたつのまま",
+  setup:"矛盾するふたつの気もちが、胸にある。どちらかに決めて、ひとつにするか。それとも、ふたつのまま、抱えていくか。",
+  frags:[
+   "あなたは、ひとつに決めた。すっきりした。こぼれ落ちたほうの気もちは、たぶん、もう戻ってこない。",
+   "ふたつを、ひとつにも、ばらばらにもしない。矛盾を矛盾のまま、手のひらに乗せておく。重いけれど、どちらも、ほんとうだ。",
+   "あなたは、ふたつとも抱えることにした。重い。けれど、どちらかを捨てた自分より、この自分のほうが、たぶん、正しい。"],
+  fxA:{shin:-.02,kaze:+.06,onore:+.08,aida:-.14}, fxB:{shin:+.08,kaze:-.02,onore:+.10,aida:+.16}}
+];
+
 function dialLabel(p,pa,pb){
   if(p<.10) return "ほとんど〈"+pa+"〉へ";
   if(p<.34) return "〈"+pa+"〉寄り";
@@ -214,13 +216,12 @@ function dialLabel(p,pa,pb){
   return "ほとんど〈"+pb+"〉へ";
 }
 
-/* ── 状態 ── */
 let idx=0;
+let ACTIVE=SCENES;
 let world={shin:.5,kaze:.5,onore:.5,aida:.5};
-let positions=[];          // 各情景の p
+let positions=[];
 let app=document.getElementById("app");
 
-/* ── 画面：タイトル ── */
 function viewTitle(){
   setTilt(.5);
   app.className="fade";
@@ -232,17 +233,21 @@ function viewTitle(){
      <p class="setup" style="min-height:auto">ここでは、すべての選択が <b style="color:var(--gold)">0.00 〜 1.00</b> のダイヤルです。
      「はい／いいえ」ではなく、<b style="color:var(--gold)">どのくらい</b>を、指で決める。
      世界はその分だけ、連続して応えます。<br><br>
-     七つの情景。短い、ある一夜。あなたの手つきの“形”を、最後に読みます。</p>
-     <div class="center"><button class="btn" id="start">はじめる</button></div>
+     情景のあいだを、あなたの手つきで渡る。その“形”を、最後に読みます。</p>
+     <div class="row">
+       <button class="btn" id="start7">ひと夜 — 七景</button>
+       <button class="btn ghost" id="start10">深い夜 — 十景</button>
+     </div>
    </div>
    ${techoSummary()}`;
-  document.getElementById("start").onclick=()=>{idx=0;world={shin:.5,kaze:.5,onore:.5,aida:.5};positions=[];viewScene();};
+  document.getElementById("start7").onclick=()=>begin(SCENES);
+  document.getElementById("start10").onclick=()=>begin(SCENES.concat(SCENES2));
   bindResetTecho();
 }
+function begin(set){ ACTIVE=set; idx=0; world={shin:.5,kaze:.5,onore:.5,aida:.5}; positions=[]; viewScene(); }
 
-/* ── 画面：情景（ダイヤル） ── */
 function viewScene(){
-  const s=SCENES[idx];
+  const s=ACTIVE[idx];
   setTilt(.5);
   app.className="fade";
   app.innerHTML=`
@@ -264,7 +269,6 @@ function viewScene(){
   document.getElementById("confirm").onclick=()=>{const p=parseFloat(dial.value); applyScene(s,p); viewResult(s,p);};
 }
 
-/* ── 帰結を世界へ適用（連続ブレンド） ── */
 let lastDelta={};
 function applyScene(s,p){
   lastDelta={};
@@ -272,7 +276,6 @@ function applyScene(s,p){
   positions.push(p);
 }
 
-/* ── 画面：帰結（ナレ＋こだま） ── */
 function viewResult(s,p){
   const frag = p<.34? s.frags[0] : (p>.66? s.frags[2] : s.frags[1]);
   app.className="fade";
@@ -286,17 +289,16 @@ function viewResult(s,p){
      <div class="echo">${echoLine(lastDelta)}</div>
      ${axesView()}
      <div class="center" style="margin-top:22px">
-       <button class="btn" id="next">${idx<SCENES.length-1?"次の情景へ":"朝を、読む"}</button>
+       <button class="btn" id="next">${idx<ACTIVE.length-1?"次の情景へ":"朝を、読む"}</button>
      </div>
    </div>`;
   document.getElementById("next").onclick=()=>{
     idx++;
-    if(idx<SCENES.length) viewScene(); else viewEnding();
+    if(idx<ACTIVE.length) viewScene(); else viewEnding();
   };
 }
 
 function echoLine(delta){
-  // 動いた軸を大きい順に。連続値なので 0.5 でも必ず何かが動く。
   const parts=AX.map(k=>({k,d:delta[k]})).filter(o=>Math.abs(o.d)>=.015)
      .sort((a,b)=>Math.abs(b.d)-Math.abs(a.d));
   if(!parts.length) return "<span style='color:var(--dim)'>世界は、ほとんど動かなかった。</span>";
@@ -313,7 +315,6 @@ function axesView(){
      <span class="axval">${f2(world[k])}</span>`).join("")+`</div>`;
 }
 
-/* ── エンディング生成 ── */
 const BANDS={
  shin:["あなたは、すこし遠くにいる。近づきすぎないことで、守ったものがある。",
        "近さは、ちょうど手の届くあたりに、ある。",
@@ -329,19 +330,15 @@ const BANDS={
        "あなたは、たくさんの余白を残した。決めないことも、ひとつの決め方だった。"]
 };
 const band=v=> v<.42?0 : (v>.58?2:1);
-
 function endingParas(){
-  const out=[];
-  out.push(BANDS.aida[band(world.aida)]+BANDS.shin[band(world.shin)]);
-  out.push(BANDS.onore[band(world.onore)]+BANDS.kaze[band(world.kaze)]);
-  return out;
+  return [ BANDS.aida[band(world.aida)]+BANDS.shin[band(world.shin)],
+           BANDS.onore[band(world.onore)]+BANDS.kaze[band(world.kaze)] ];
 }
-
 function meta(){
   const n=positions.length||1;
-  const pol = positions.reduce((a,p)=>a+Math.abs(p-.5),0)/n*2;          // 0..1
+  const pol = positions.reduce((a,p)=>a+Math.abs(p-.5),0)/n*2;
   const mean= positions.reduce((a,p)=>a+p,0)/n;
-  const vr  = Math.sqrt(positions.reduce((a,p)=>a+(p-mean)*(p-mean),0)/n)*2; // 0..~1
+  const vr  = Math.sqrt(positions.reduce((a,p)=>a+(p-mean)*(p-mean),0)/n)*2;
   return {pol:clamp(pol), vr:clamp(vr)};
 }
 function polarityPara(pol){
@@ -371,9 +368,9 @@ function viewEnding(){
   const rec=saveTecho(m);
   app.className="fade";
   app.innerHTML=`
-   ${progress(SCENES.length,true)}
+   ${progress(ACTIVE.length,true)}
    <div class="stage">
-     <div class="scene-no">あけがた</div>
+     <div class="scene-no">あけがた ・ ${ACTIVE.length}景の夜</div>
      <div class="scene-name">あなたのあわい</div>
      <div class="ending">
        <p>${paras[0]}</p>
@@ -390,29 +387,78 @@ function viewEnding(){
      <div class="closing">${closingLine(m.pol)}</div>
      ${rec.html}
      <div class="row">
-       <button class="btn" id="again">もう一度、ちがう手つきで</button>
+       <button class="btn" id="share">この夜を、画像で持ち帰る</button>
+       <button class="btn ghost" id="again">もう一度、ちがう手つきで</button>
      </div>
    </div>`;
   document.getElementById("again").onclick=viewTitle;
+  document.getElementById("share").onclick=()=>shareCard(m);
 }
 
-/* ── progress pips ── */
 function progress(done,inResult){
   let p="";
-  for(let i=0;i<SCENES.length;i++){
+  for(let i=0;i<ACTIVE.length;i++){
     const cls = i<done? "pip on" : (i===done && !inResult ? "pip cur":"pip");
     p+=`<span class="${cls}"></span>`;
   }
   return `<div class="prog" aria-hidden="true">${p}</div>`;
 }
 
-/* ── あわい手帖（localStorage 永続化） ── */
+/* ── 結果シェアカード（client-side canvas → PNG DL） ── */
+function shareCard(m){
+  try{
+    const W=1080,H=1080, cv=document.createElement("canvas"); cv.width=W; cv.height=H;
+    const x=cv.getContext("2d");
+    let g=x.createRadialGradient(W/2,H*0.30,30,W/2,H*0.55,W*0.95);
+    g.addColorStop(0,"#12111a"); g.addColorStop(.5,"#0a0a0f"); g.addColorStop(1,"#06060a");
+    x.fillStyle=g; x.fillRect(0,0,W,H);
+    let gl=x.createRadialGradient(W/2,H*0.27,8,W/2,H*0.27,380);
+    gl.addColorStop(0,"rgba(212,168,83,.34)"); gl.addColorStop(1,"rgba(212,168,83,0)");
+    x.fillStyle=gl; x.beginPath(); x.arc(W/2,H*0.27,380,0,7); x.fill();
+    for(let i=0;i<140;i++){ const sx=(i*97+ (i%7)*13)%W, sy=(i*173+ i*i*11)%H;
+      x.globalAlpha=.04+(i%5)*.035; x.fillStyle=(i%17===0)?"#d4a853":"#cfd6e6"; x.fillRect(sx,sy,(i%4?1:2),(i%4?1:2)); }
+    x.globalAlpha=1; x.textAlign="center";
+    x.fillStyle="#d4a853"; x.font='500 30px var(--mono), monospace'; x.fillText("A   W   A   I", W/2, H*0.165);
+    x.fillStyle="#e8e0d0"; x.font='600 150px "Hiragino Sans","Yu Gothic",sans-serif'; x.fillText("あわい", W/2, H*0.31);
+    x.fillStyle="#d4a853"; x.font='600 60px "SFMono-Regular",monospace';
+    x.fillText("極性 "+f2(m.pol)+"   揺らぎ "+f2(m.vr), W/2, H*0.475);
+    x.fillStyle="#b8b0a0"; x.font='400 33px "Hiragino Sans","Yu Gothic",sans-serif'; x.fillText(interp(m.pol), W/2, H*0.475+54);
+    // 4軸 mini bars
+    const bw=520, bx=(W-bw)/2; let by=H*0.585;
+    AX.forEach(k=>{
+      x.fillStyle="#807868"; x.font='400 26px "Hiragino Sans",sans-serif'; x.textAlign="left";
+      x.fillText(AXJP[k]+" "+AXDESC[k], bx, by+9);
+      x.fillStyle="rgba(255,255,255,.06)"; roundRect(x,bx+120,by-12,bw-120,14,7); x.fill();
+      x.fillStyle="#d4a853"; roundRect(x,bx+120,by-12,(bw-120)*world[k],14,7); x.fill();
+      x.textAlign="right"; x.fillStyle="#b8b0a0"; x.font='400 22px monospace'; x.fillText(f2(world[k]), bx+bw, by+8);
+      by+=58;
+    });
+    x.textAlign="center";
+    x.fillStyle="#d4a853"; x.font='400 36px "Hiragino Sans","Yu Gothic",sans-serif';
+    wrapText(x, closingLine(m.pol), W/2, H*0.855, W*0.78, 50);
+    x.fillStyle="#807868"; x.font='400 26px monospace'; x.fillText("osakenpiro.github.io/awai", W/2, H*0.955);
+    cv.toBlob(b=>{ if(!b) return; const a=document.createElement("a");
+      a.href=URL.createObjectURL(b); a.download="awai-"+new Date().toISOString().slice(0,10)+".png";
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); });
+  }catch(e){ /* canvas unsupported: 無音で諦める */ }
+}
+function roundRect(x,X,Y,w,h,r){ r=Math.min(r,w/2,h/2); x.beginPath();
+  x.moveTo(X+r,Y); x.arcTo(X+w,Y,X+w,Y+h,r); x.arcTo(X+w,Y+h,X,Y+h,r);
+  x.arcTo(X,Y+h,X,Y,r); x.arcTo(X,Y,X+w,Y,r); x.closePath(); }
+function wrapText(ctx,text,cx,cy,maxW,lh){
+  const ch=[...text]; let line="", y=cy;
+  for(const c of ch){ const t=line+c;
+    if(ctx.measureText(t).width>maxW && line){ ctx.fillText(line,cx,y); line=c; y+=lh; } else line=t; }
+  if(line) ctx.fillText(line,cx,y);
+}
+
+/* ── あわい手帖（localStorage） ── */
 const TECHO_KEY="awai-techo-v1";
 function loadTecho(){ try{return JSON.parse(localStorage.getItem(TECHO_KEY))||[];}catch(e){return [];} }
 function saveTecho(m){
   let log=loadTecho();
   const prev=log.length?log[log.length-1]:null;
-  const rec={d:new Date().toISOString().slice(0,10),pol:+f2(m.pol),vr:+f2(m.vr),
+  const rec={d:new Date().toISOString().slice(0,10),n:ACTIVE.length,pol:+f2(m.pol),vr:+f2(m.vr),
              shin:+f2(world.shin),kaze:+f2(world.kaze),onore:+f2(world.onore),aida:+f2(world.aida)};
   log.push(rec); if(log.length>50) log=log.slice(-50);
   try{localStorage.setItem(TECHO_KEY,JSON.stringify(log));}catch(e){}
@@ -422,9 +468,7 @@ function saveTecho(m){
     const w=v=> v>0?`＋${f2(v)}`:`−${f2(Math.abs(v))}`;
     html+=`<br>前回より 極性 <b>${w(dp)}</b> ／ 揺らぎ <b>${w(dv)}</b>。`;
     html+= Math.abs(dp)<.06 ? " 似た夜を、もう一度。" : (dp<0? " 今夜は、よりあわいへ寄った。":" 今夜は、より端へ寄った。");
-  }else{
-    html+=`<br>はじめての夜が、手帖に記された。`;
-  }
+  }else{ html+=`<br>はじめての夜が、手帖に記された。`; }
   html+=`</div>`;
   return {html,rec};
 }
@@ -441,11 +485,9 @@ function bindResetTecho(){
   if(a) a.onclick=(e)=>{e.preventDefault(); try{localStorage.removeItem(TECHO_KEY);}catch(_){}
      const f=document.getElementById("ftag"); if(f) f.textContent="手帖を、まっさらに"; viewTitle();};
 }
-
-/* ── tilt（情景のわずかな色み） ── */
 function setTilt(p){ document.documentElement.style.setProperty("--tilt", p); }
 
-/* ── 星空 canvas（控えめ＋ひとつだけ金の星） ── */
+/* ── 星空 canvas ── */
 (function sky(){
   const c=document.getElementById("sky"), x=c.getContext("2d");
   const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -453,19 +495,16 @@ function setTilt(p){ document.documentElement.style.setProperty("--tilt", p); }
   function resize(){ W=c.width=innerWidth; H=c.height=innerHeight;
     const n=Math.min(90,Math.floor(W*H/16000));
     stars=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,
-      r:Math.random()*1.1+.2, a:Math.random(), s:Math.random()*.018+.004,
-      gold:Math.random()<.06}));
+      r:Math.random()*1.1+.2, a:Math.random(), s:Math.random()*.018+.004, gold:Math.random()<.06}));
   }
   function draw(){
     x.clearRect(0,0,W,H);
     for(const st of stars){
       if(!reduce){ st.a+=st.s; if(st.a>1||st.a<.1) st.s*=-1; }
-      x.globalAlpha=.15+st.a*.6;
-      x.fillStyle= st.gold ? "#d4a853" : "#cfd6e6";
+      x.globalAlpha=.15+st.a*.6; x.fillStyle= st.gold ? "#d4a853" : "#cfd6e6";
       x.beginPath(); x.arc(st.x,st.y,st.r,0,7); x.fill();
     }
-    x.globalAlpha=1;
-    if(!reduce) requestAnimationFrame(draw);
+    x.globalAlpha=1; if(!reduce) requestAnimationFrame(draw);
   }
   addEventListener("resize",resize); resize(); draw();
 })();
